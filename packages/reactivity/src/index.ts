@@ -1,1 +1,4 @@
-export const VueReactivity = 'VueReactivity'
+
+
+
+export { reactive, readonly, shallowReactive, shallowReadonly } from './reactive' 
