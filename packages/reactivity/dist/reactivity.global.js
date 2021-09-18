@@ -4,6 +4,53 @@ var VueReactivity = (function (exports) {
   const isObject = (val) => val !== null && typeof val === 'object';
   const extend = Object.assign;
 
+  function effect(fn, options = {}) {
+      const effect = createReactiveEffect(fn, options); //把fn包装成一个响应式的函数
+      if (!options.lazy) {
+          effect();
+      }
+      return effect;
+  }
+  let uid = 0;
+  let activeEffect; //此模块内的唯一一个变量
+  function createReactiveEffect(fn, options) {
+      const effect = function () {
+          // 我需要将effec暴露到外层
+          activeEffect = effect;
+          fn();
+          activeEffect = null;
+      };
+      effect.id = uid++; //每个effect都有一个唯一的标识
+      effect._isEffect = true; //用于标识这个函数是一个effect函数
+      effect.raw = fn; //把用户传入的函数保存到当前的effect
+      effect.deps = []; //后来用来存放efect对于哪写属性
+      effect.options = options;
+      return effect;
+  }
+  const targetMap = new WeakMap();
+  function track(target, type, key) {
+      if (!activeEffect)
+          return; // 说明取值操作是在effec之外操作的
+      let depsMap = targetMap.get(target); //先尝试看一下这个对象中是否存过属性 
+      if (!depsMap)
+          targetMap.set(target, (depsMap = new Map));
+      let dep = depsMap.get(key);
+      if (!dep)
+          depsMap.set(key, (dep = new Set));
+      if (!dep.has(activeEffect)) {
+          dep.add(activeEffect);
+      }
+      console.log(targetMap);
+  }
+  function trigger(target, key, value) {
+      // activeEffect()
+      const depsMap = targetMap.get(target);
+      if (!depsMap)
+          return; //如果没收集过 直接跳过
+      const effects = depsMap.get(key);
+      effects && effects.forEach(effect => effect());
+  }
+
   const get = createGetter();
   const readonlyGet = createGetter(true, false);
   const shallowGet = createGetter(false, true);
@@ -12,7 +59,7 @@ var VueReactivity = (function (exports) {
       return function get(target, key, receiver) {
           const res = Reflect.get(target, key, receiver);
           if (!isReadonly) { //不是仅读的属性 才进行依赖收集
-              console.log('取值');
+              track(target, 'get', key);
           }
           if (shallow) {
               return res; //如果是浅的不需要进行递归代理
@@ -33,6 +80,7 @@ var VueReactivity = (function (exports) {
       return function set(target, key, value, receiver) {
           const res = Reflect.set(target, key, value, receiver);
           //触发视图更新 做相应的处理
+          trigger(target, key);
           console.log('设置值', key, value);
           return res;
       };
@@ -79,6 +127,7 @@ var VueReactivity = (function (exports) {
       return proxy;
   }
 
+  exports.effect = effect;
   exports.reactive = reactive;
   exports.readonly = readonly;
   exports.shallowReactive = shallowReactive;

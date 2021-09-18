@@ -1,4 +1,5 @@
 import { isObject, extend } from '@vue/shared'
+import { trigger, track } from './effect'
 import { reactive, readonly } from './index'
 
 const get = createGetter()
@@ -13,7 +14,7 @@ function createGetter(isReadonly = false, shallow = false) {
     
     const res = Reflect.get(target, key, receiver)
     if (!isReadonly) { //不是仅读的属性 才进行依赖收集
-      console.log('取值')
+      track(target, 'get', key)
     }
     if (shallow) {
       return res //如果是浅的不需要进行递归代理
@@ -39,10 +40,8 @@ function createSetter() {
     const res = Reflect.set(target, key, value, receiver)
     
     //触发视图更新 做相应的处理
-
+    trigger(target, key, value)
     console.log('设置值', key, value)
-    
-
 
     return res 
   }

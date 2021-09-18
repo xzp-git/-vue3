@@ -9,14 +9,22 @@
 <body>
     <script src="../packages/reactivity/dist/reactivity.global.js"></script>
     <script>
-        let {reactive, readonly, shallowReactive, shallowReadonly} = VueReactivity
+        let {reactive, readonly, shallowReactive, shallowReadonly, effect} = VueReactivity
         let obj = {name:'zs', age:'24', address:{name:'bj'}}
         let r1 = reactive(obj)
-        let r2 = readonly(obj)
-        let r3 = shallowReactive(obj)
-        let r4 = shallowReadonly(obj)
-        r1.address.name = "sh"
-        console.log(r1.address ,"r1");
+
+        effect(() => {
+            console.log(r1.name + r1.age);
+        })
+
+        setTimeout(() => {
+            r1.name = "lisi"
+        },1000)
+        // let r2 = readonly(obj)
+        // let r3 = shallowReactive(obj)
+        // let r4 = shallowReadonly(obj)
+        // r1.address.name = "sh"
+        // console.log(r1.address ,"r1");
 
     </script>
 </body>
