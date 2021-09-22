@@ -11,15 +11,28 @@ export function effect(fn, options:any = {}) {
 
 let uid = 0 
 let activeEffect //此模块内的唯一一个变量
+const effectStack = []
+/* 
+为了防止 effect的嵌套 
+effect(()=>{
+  ...
+  effect()
+})
+*/
 function createReactiveEffect(fn, options) {
   const effect = function () {
-
-    // 我需要将effec暴露到外层
-    activeEffect = effect
-
-    fn()
-    activeEffect= null
-  }
+    if (!effectStack.includes(effect)) { //保证effect没有加入到 effectStack
+      try{
+        // 我需要将effec暴露到外层
+        effectStack.push(effect)
+        activeEffect = effect
+        return fn() //函数执行时会取值 执行get方法
+      }finally{
+        effectStack.pop()
+        activeEffect = effectStack[effectStack.length - 1]
+      }
+    }
+  }  
   effect.id = uid++ //每个effect都有一个唯一的标识
   effect._isEffect = true //用于标识这个函数是一个effect函数
   effect.raw = fn //把用户传入的函数保存到当前的effect
@@ -28,6 +41,7 @@ function createReactiveEffect(fn, options) {
   return effect
 }
 
+//依赖收集  让某个对象中的属性 收集当前对应的effect函数
 const targetMap = new WeakMap()
 export function track(target, type, key) { //{obj:name => [effect, effect]} weakMap : (map){key: new Set()}
   if (!activeEffect) return // 说明取值操作是在effec之外操作的
@@ -42,8 +56,8 @@ export function track(target, type, key) { //{obj:name => [effect, effect]} weak
   
 }
 
-export function trigger(target, key, value) {
-  // activeEffect()
+export function trigger(target,type, key, value, oldValue) {
+  // activeEffect()-+p  
   const depsMap = targetMap.get(target)
   if(!depsMap) return //如果没收集过 直接跳过
   const effects = depsMap.get(key)

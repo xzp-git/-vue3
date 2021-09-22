@@ -1,6 +1,7 @@
-import { isObject, extend } from '@vue/shared'
+import { isObject, extend, isArray, isInteger, hasOwn, hasChanged } from '@vue/shared'
 import { trigger, track } from './effect'
 import { reactive, readonly } from './index'
+import { TrackOpTypes, TriggerOrTypes } from './operators'
 
 const get = createGetter()
 const readonlyGet = createGetter(true, false)
@@ -14,7 +15,7 @@ function createGetter(isReadonly = false, shallow = false) {
     
     const res = Reflect.get(target, key, receiver)
     if (!isReadonly) { //不是仅读的属性 才进行依赖收集
-      track(target, 'get', key)
+      track(target, TrackOpTypes.GET, key)
     }
     if (shallow) {
       return res //如果是浅的不需要进行递归代理
@@ -37,11 +38,19 @@ const readonlySet = {
 
 function createSetter() {
   return function set(target, key, value, receiver) {
+
+    const oldValue = target[key] 
     const res = Reflect.set(target, key, value, receiver)
     
+    const hadKey = isArray(target) && isInteger(key)? Number(key) < target.length : hasOwn(target,key)
+
     //触发视图更新 做相应的处理
-    trigger(target, key, value)
-    console.log('设置值', key, value)
+    if(!hadKey){//新增
+      trigger(target,TriggerOrTypes.ADD , key, value)
+    }else if (hasChanged(oldValue, value)) { //修改 
+      trigger(target,TriggerOrTypes.SET , key, value, oldValue)
+
+    }
 
     return res 
   }
