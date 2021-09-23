@@ -1,3 +1,6 @@
+import { isArray, isInteger } from '@vue/shared'
+import { TriggerOrTypes } from './operators'
+
 export function effect(fn, options:any = {}) {
   const effect = createReactiveEffect(fn, options) //把fn包装成一个响应式的函数
 
@@ -52,14 +55,42 @@ export function track(target, type, key) { //{obj:name => [effect, effect]} weak
   if (!dep.has(activeEffect)) {
     dep.add(activeEffect)
   }
-  console.log(targetMap)
   
 }
 
-export function trigger(target,type, key, value, oldValue) {
+export function trigger(target,type, key?, newValue?, oldValue?) {
   // activeEffect()-+p  
   const depsMap = targetMap.get(target)
   if(!depsMap) return //如果没收集过 直接跳过
-  const effects = depsMap.get(key)
-  effects && effects.forEach(effect => effect())
+  const effects = new Set()
+  // 我要将所有 要执行的effect 全部存到一个新的集合中， 最终一起执行
+  const add = (effectsToAdd) => {
+    if (effectsToAdd) {
+      effectsToAdd.forEach(effect => effects.add(effect))
+    }
+  }
+  // 1. 看修改是不是数组的长度 因为改长度影响比较大
+
+  if (key === 'length' && isArray(target)) {
+    //如果对应的长度 有依赖收集需要更新
+    depsMap.forEach((dep, key) => {
+      if (key === 'length' || key > newValue) {
+        add(dep)
+      }
+    })
+  }else{
+    //可能是对象
+    if (key !== undefined) {
+      add(depsMap.get(key))
+    }
+    //如果修改数组中的某一个索引 怎么办？
+    switch (type) {
+    case TriggerOrTypes.ADD:
+      if (isArray(target) && isInteger(key)) {
+        add(depsMap.get('length'))
+      }    
+    }
+  }
+
+  effects.forEach((effect:any) => effect())
 }

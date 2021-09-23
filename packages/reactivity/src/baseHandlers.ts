@@ -40,16 +40,16 @@ function createSetter() {
   return function set(target, key, value, receiver) {
 
     const oldValue = target[key] 
-    const res = Reflect.set(target, key, value, receiver)
+    
     
     const hadKey = isArray(target) && isInteger(key)? Number(key) < target.length : hasOwn(target,key)
-
+    const res = Reflect.set(target, key, value, receiver)  
     //触发视图更新 做相应的处理
     if(!hadKey){//新增
       trigger(target,TriggerOrTypes.ADD , key, value)
+      
     }else if (hasChanged(oldValue, value)) { //修改 
       trigger(target,TriggerOrTypes.SET , key, value, oldValue)
-
     }
 
     return res 

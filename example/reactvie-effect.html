@@ -7,25 +7,36 @@
     <title>Document</title>
 </head>
 <body>
+    <div id="app"></div>
     <script src="../packages/reactivity/dist/reactivity.global.js"></script>
     <script>
         let {reactive, readonly, shallowReactive, shallowReadonly, effect} = VueReactivity
-        let obj = {name:'zs', age:'24', address:{name:'bj'}}
-        let r1 = reactive(obj)
+        // let obj = {name:'zs', age:'24', arr:[1, 2, 3], address:{name:'bj'}}
+        let r1 = reactive({name:'zs', age:'24', arr:[1, 2, 3], address:{name:'bj'}})
 
+        // effect(() => {
+            
+        //     console.log(r1.arr[2] + r1.arr.length, 'render-------');
+        // })
         effect(() => {
-            console.log(r1.name + r1.age);
-        })
-
+            console.log("render");
+            app.innerHTML = r1.arr
+        })    
         setTimeout(() => {
-            r1.name = "lisi"
+            console.log("www");
+            r1.arr[100] = 1
         },1000)
         // let r2 = readonly(obj)
         // let r3 = shallowReactive(obj)
         // let r4 = shallowReadonly(obj)
         // r1.address.name = "sh"
         // console.log(r1.address ,"r1");
+        
 
+        /* 
+         1. effect 中的所有属性 都会收集effect  track方法
+         2. 当这个属性发生变化 会重新执行 effect   trigger 方法
+        */
     </script>
 </body>
 </html>
