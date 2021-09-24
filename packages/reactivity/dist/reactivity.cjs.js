@@ -6,6 +6,7 @@ const isObject = (val) => val !== null && typeof val === 'object';
 const extend = Object.assign;
 const isArray = Array.isArray;
 const hasChanged = (oldVal, val) => oldVal !== val;
+const isFunction = (val) => typeof val === 'function';
 const isInteger = (key) => parseInt(key) + '' === key;
 const hasOwn = (target, key) => Object.prototype.hasOwnProperty.call(target, key);
 
@@ -97,7 +98,14 @@ function trigger(target, type, key, newValue, oldValue) {
                 }
         }
     }
-    effects.forEach((effect) => effect());
+    effects.forEach((effect) => {
+        if (effect.options.scheduler) {
+            effect.options.scheduler(effect);
+        }
+        else {
+            effect();
+        }
+    });
 }
 
 const get = createGetter();
@@ -243,6 +251,54 @@ function toRefs(object) {
     return ret;
 }
 
+class ComputedRefImpl {
+    getter;
+    setter;
+    _dirty = true; //默认取值时不要用缓存
+    _value;
+    effect;
+    constructor(getter, setter) {
+        this.getter = getter;
+        this.setter = setter;
+        this.effect = effect(getter //计算属性默认会产生一个effect
+        , {
+            lazy: true,
+            scheduler: () => {
+                if (!this._dirty)
+                    this._dirty = true;
+                trigger(this, 1 /* SET */, 'value');
+            }
+        });
+    }
+    get value() {
+        if (this._dirty) {
+            this._value = this.effect(); //会将用户的返回值返回
+            this._dirty = false;
+        }
+        track(this, 0 /* GET */, 'value');
+        return this._value;
+    }
+    set value(newValue) {
+        this.setter(newValue);
+    }
+}
+function computed(getterOrOptions) {
+    let getter;
+    let setter;
+    if (isFunction(getterOrOptions)) {
+        getter = getterOrOptions;
+        setter = () => {
+            console.warn('computed value must be readonly');
+        };
+    }
+    else {
+        getter = getterOrOptions.get;
+        setter = getterOrOptions.set;
+    }
+    return new ComputedRefImpl(getter, setter);
+}
+
+exports.computed = computed;
 exports.effect = effect;
 exports.reactive = reactive;
 exports.readonly = readonly;

@@ -10,18 +10,30 @@
     <div id="app"></div>
     <script src="../packages/reactivity/dist/reactivity.global.js"></script>
     <script>
-        let {effect, ref, reactive, toRefs} = VueReactivity
+        let {effect, ref, reactive, toRefs, computed} = VueReactivity
         let name = ref('qdddddd') //将普通的类型 转化成一个对象, 这个对象中有value属性 指向原来的值
         let obj = reactive({name:'foo', age:23})
-        let {name:names, age} = toRefs(obj)
         
-        effect(() => {
-            app.innerHTML = names.value + age.value
+        const myAge = computed(() => {
+            console.log("runner");
+            return name.value + 2222222 
         })
 
-        setTimeout(() => {
-            obj.name = 'bar'
-        },1000)
+        effect(() => {
+            console.log(myAge.value); 
+        })
+
+        name.value = 'ssssssssss'
+
+        // let {name:names, age} = toRefs(obj)
+        
+        // effect(() => {
+        //     app.innerHTML = names.value + age.value
+        // })
+
+        // setTimeout(() => {
+        //     obj.name = 'bar'
+        // },1000)
     </script>
 </body>
 </html>
