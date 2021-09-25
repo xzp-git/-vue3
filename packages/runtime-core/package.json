@@ -1,0 +1,12 @@
+{
+  "name": "@vue/runtime-core",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "license": "MIT",
+  "buildOptions":{
+    "name":"VueRuntimeCore",
+    "formats":[
+      "esm-bundler"
+    ]
+  }
+}
