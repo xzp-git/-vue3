@@ -12,20 +12,13 @@
     <script src="../packages/runtime-dom/dist/runtime-dom.global.js"></script>
 
     <script>
-        let {createApp} = VueRuntimeDom
+        let {createApp, h} = VueRuntimeDom
 
         let App = {
             setup(props,context){
-            //    return () => {
-            //     console.log('setup',props,context);
-            //    }
-                return {
-                    a:1,
-                    b:2
-                }
-            },
-            render(proxy){
-                console.log('render',proxy.age);
+               return () => {
+                return h('div', {style:{color:'red'}}, 'hellow world')
+               }
             }
         }
 
