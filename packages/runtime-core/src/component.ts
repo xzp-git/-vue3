@@ -1,6 +1,7 @@
 //组件中所有的方法
 
-import { ShapeFlags } from '@vue/shared'
+import { isFunction, isObject, ShapeFlags } from '@vue/shared'
+import { PublicInstanceProxyHandlers } from './componentPublicInstance'
 
 
 export function createComponentInstance(vnode) {
@@ -13,6 +14,7 @@ export function createComponentInstance(vnode) {
     slots:{},
     ctx:{},
     setupState:{},//如果setup返回一个对象，这个对象回座位setUpstate
+    render:null,
     isMounted:false //表示这个组件是否挂载过
   }
   instance.ctx = { _:instance} 
@@ -43,18 +45,45 @@ export function setupComponent(instance) {
 
 function setupStatefulComponent(instance) {
   //1.代理 传递给 render函数的参数
-
+  instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers as any)
   //2.获取组件的类型拿到组件的setup方法
 
   const Component = instance.type
   const {setup} = Component
   
-  const setupContext = createContext(instance)
-  setup(instance.props, setupContext)
+  
+  if (setup) {
+    const setupContext = createContext(instance)
+    const setupResult = setup(instance.props, setupContext)
+    handleSetupResult(instance, setupResult)
+  }else{
+    finishComponentSetup(instance) //完成组件的启动
+  }
+}
+function handleSetupResult(instance, setupResult) {
+  if (isFunction(setupResult)) {
+    instance.render = setupResult
+  }else if (isObject(setupResult)) {
+    instance.setupState = setupResult
+  }
+  finishComponentSetup(instance)
 }
 
-function createContext(instance) {
-    
+function finishComponentSetup(instance) {
+  const Component = instance.type
+  if (!instance.render) {
+    // 对template模板进行编译 产生render函数
+    if (!Component.render && Component.template) {
+      //编译 将结果 赋予给 Component.render
+    }
+    instance.render = Component.render // 需要将生成的render函数放在实例上
+  }
+  
+  // 对vue2的 API 做了兼容处理
+  // applyOptions
+}
+
+function createContext(instance) {    
   return{
     attrs: instance.attrs,
     slots:instance.slots,

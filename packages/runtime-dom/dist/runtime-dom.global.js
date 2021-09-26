@@ -4,7 +4,9 @@ var VueRuntimeDom = (function (exports) {
   const isObject = (val) => val !== null && typeof val === 'object';
   const extend = Object.assign;
   const isArray = Array.isArray;
+  const isFunction = (val) => typeof val === 'function';
   const isString = (val) => typeof val === 'string';
+  const hasOwn = (target, key) => Object.prototype.hasOwnProperty.call(target, key);
 
   //createVNode 创建虚拟节点
   // h('div', {style:{color:red},'children'})  //h方法和createApp类似
@@ -60,6 +62,38 @@ var VueRuntimeDom = (function (exports) {
       };
   }
 
+  const PublicInstanceProxyHandlers = {
+      get({ _: instance }, key) {
+          //取值时 要访问setUpState, props, data
+          const { setupState, props, data } = instance;
+          if (key[0] == '$') {
+              return; //不能访问 $ 开头的变量
+          }
+          if (hasOwn(setupState, key)) {
+              return setupState[key];
+          }
+          else if (hasOwn(props, key)) {
+              return props[key];
+          }
+          else if (hasOwn(data, key)) {
+              return data[key];
+          }
+      },
+      set({ _: instance }, key, value) {
+          const { setupState, props, data } = instance;
+          if (hasOwn(setupState, key)) {
+              setupState[key] = value;
+          }
+          else if (hasOwn(props, key)) {
+              props[key] = value;
+          }
+          else if (hasOwn(data, key)) {
+              data[key] = value;
+          }
+          return true;
+      }
+  };
+
   //组件中所有的方法
   function createComponentInstance(vnode) {
       const instance = {
@@ -70,6 +104,7 @@ var VueRuntimeDom = (function (exports) {
           slots: {},
           ctx: {},
           setupState: {},
+          render: null,
           isMounted: false //表示这个组件是否挂载过
       };
       instance.ctx = { _: instance };
@@ -89,11 +124,37 @@ var VueRuntimeDom = (function (exports) {
   }
   function setupStatefulComponent(instance) {
       //1.代理 传递给 render函数的参数
+      instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers);
       //2.获取组件的类型拿到组件的setup方法
       const Component = instance.type;
       const { setup } = Component;
-      const setupContext = createContext(instance);
-      setup(instance.props, setupContext);
+      if (setup) {
+          const setupContext = createContext(instance);
+          const setupResult = setup(instance.props, setupContext);
+          handleSetupResult(instance, setupResult);
+      }
+      else {
+          finishComponentSetup(instance); //完成组件的启动
+      }
+  }
+  function handleSetupResult(instance, setupResult) {
+      if (isFunction(setupResult)) {
+          instance.render = setupResult;
+      }
+      else if (isObject(setupResult)) {
+          instance.setupState = setupResult;
+      }
+      finishComponentSetup(instance);
+  }
+  function finishComponentSetup(instance) {
+      const Component = instance.type;
+      if (!instance.render) {
+          // 对template模板进行编译 产生render函数
+          if (!Component.render && Component.template) ;
+          instance.render = Component.render; // 需要将生成的render函数放在实例上
+      }
+      // 对vue2的 API 做了兼容处理
+      // applyOptions
   }
   function createContext(instance) {
       return {

@@ -16,8 +16,17 @@
 
         let App = {
             setup(props,context){
-                console.log('setup',props,context);
+            //    return () => {
+            //     console.log('setup',props,context);
+            //    }
+                return {
+                    a:1,
+                    b:2
+                }
             },
+            render(proxy){
+                console.log('render',proxy.age);
+            }
         }
 
         createApp(App, {name:'bejing', age:70}).mount('#app')
