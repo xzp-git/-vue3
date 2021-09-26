@@ -6,8 +6,9 @@ import { createComponentInstance, setupComponent } from './component'
 
 export  function createRenderer(renderOptions) { //告诉core 怎么渲染
 
-  const setupRenderEffect = () => {
-
+  const setupRenderEffect = (instance) => {
+    //需要创建一个effect 在effect中调用render方法 这样 render方法中拿到的数据会收集这个effect   属性更新时effect会重新执行
+    instance.render()
   }
 
   const mountComponent = (initialVNode, container) => {
@@ -15,9 +16,9 @@ export  function createRenderer(renderOptions) { //告诉core 怎么渲染
     //1. 先有实例
     const instance = initialVNode.component = createComponentInstance(initialVNode)
     //2. 需要的数据解析到实例上
-    setupComponent(instance)
+    setupComponent(instance) // 给实例赋值
     //3. 创建一个effect 让render函数执行
-    setupRenderEffect()
+    setupRenderEffect(instance)
   }
 
   const processComponent = (n1, n2, container) => {

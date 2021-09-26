@@ -171,12 +171,18 @@ var VueRuntimeDom = (function (exports) {
   }
 
   function createRenderer(renderOptions) {
+      const setupRenderEffect = (instance) => {
+          //需要创建一个effect 在effect中调用render方法 这样 render方法中拿到的数据会收集这个effect   属性更新时effect会重新执行
+          instance.render();
+      };
       const mountComponent = (initialVNode, container) => {
           // 组件的渲染流程 最核心的就是 调用 setup 拿到返回值 获取到返回结果来进行渲染
           //1. 先有实例
           const instance = initialVNode.component = createComponentInstance(initialVNode);
           //2. 需要的数据解析到实例上
-          setupComponent(instance);
+          setupComponent(instance); // 给实例赋值
+          //3. 创建一个effect 让render函数执行
+          setupRenderEffect(instance);
       };
       const processComponent = (n1, n2, container) => {
           if (n1 == null) { //组件没有上一次的虚拟节点
