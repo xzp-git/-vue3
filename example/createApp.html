@@ -13,16 +13,14 @@
 
     <script>
         let {createApp, h, reactive} = VueRuntimeDom
-        let state = reactive({name:'beijing'})
-        let fn = function(){
-            console.log(55555555555555);
-            state.name="aaaaaaaaa"
-            state.name="ssssssssss"
-        }
+        let state = reactive({flag:true})
+        setTimeout(() => {
+            state.flag = false
+        }, 2000)
         let App = {
             setup(props,context){
                return () => {
-                return h('div', {style:{color:'red'},onClick:fn},state.name)
+                return state.flag? h('h1', {style:{color:'red'}},'world'):h('h1', {style:{color:'blue'}},'hello')
                }
             }
         }

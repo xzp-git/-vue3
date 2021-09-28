@@ -492,7 +492,7 @@ function flushJobs() {
 }
 
 function createRenderer(renderOptions) {
-    const { insert: hostInsert, remove: hostRemove, patchProp: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setText: hostSetText, setElementText: hostSetElementText, } = renderOptions;
+    const { insert: hostInsert, remove: hostRemove, patchProp: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setText: hostSetText, setElementText: hostSetElementText, nextSibling: hostNextSibling } = renderOptions;
     /***************************处理组件 */
     const setupRenderEffect = (instance, container) => {
         //需要创建一个effect 在effect中调用render方法 这样 render方法中拿到的数据会收集这个effect   属性更新时effect会重新执行
@@ -508,7 +508,11 @@ function createRenderer(renderOptions) {
             }
             else {
                 // 更新逻辑
-                console.log('更新了');
+                // diff
+                const prevTree = instance.subTree;
+                const proxyToUse = instance.proxy;
+                const nextTree = instance.render.call(proxyToUse, proxyToUse);
+                patch(prevTree, nextTree, container);
             }
         }, { scheduler: queueJob });
     };
@@ -534,7 +538,7 @@ function createRenderer(renderOptions) {
             patch(null, child, container);
         }
     };
-    const mountElement = (vnode, container) => {
+    const mountElement = (vnode, container, anchor) => {
         //递归渲染
         const { props, shapeFlag, type, children } = vnode;
         const el = (vnode.el = hostCreateElement(type));
@@ -549,11 +553,45 @@ function createRenderer(renderOptions) {
         else if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
             mountChildren(children, el);
         }
-        hostInsert(el, container);
+        hostInsert(el, container, anchor);
     };
-    const processElement = (n1, n2, container) => {
+    const patchProp = (oldProps, newProps, el) => {
+        if (oldProps !== newProps) {
+            for (const key in newProps) {
+                const prev = oldProps[key];
+                const next = newProps[key];
+                if (prev !== next) {
+                    hostPatchProp(el, key, prev, next);
+                }
+            }
+            for (const key in oldProps) {
+                if (!(key in newProps)) {
+                    hostPatchProp(el, key, oldProps[key], null);
+                }
+            }
+        }
+    };
+    const patchChildren = (n1, n2, el) => {
+        n1.children;
+        n2.children;
+        //老的有儿子新的没儿子  老的没儿子新的有儿子    新老都有儿子  新老都是文本
+    };
+    const patchElement = (n1, n2, container) => {
+        // 元素是相同节点
+        const el = (n2.el = n1.el);
+        //更新属性 更新儿子
+        const oldProps = n1.props || {};
+        const newProps = n2.props || {};
+        patchProp(oldProps, newProps, el);
+        patchChildren(n1, n2);
+    };
+    const processElement = (n1, n2, container, anchor) => {
         if (n1 == null) {
-            mountElement(n2, container);
+            mountElement(n2, container, anchor);
+        }
+        else {
+            //元素更新
+            patchElement(n1, n2);
         }
     };
     /***************************处理元素 */
@@ -563,16 +601,28 @@ function createRenderer(renderOptions) {
             hostInsert((n2.el = hostCreateText(n2.children)), container);
         }
     };
-    const patch = (n1, n2, container) => {
+    const isSameVNodeType = (n1, n2) => {
+        return n1.type === n2.type && n1.key === n2.key;
+    };
+    const unmount = (n1) => {
+        hostRemove(n1.el);
+    };
+    const patch = (n1, n2, container, anchor = null) => {
         //针对不同类型，做初始化操作
         const { shapeFlag, type } = n2;
+        if (n1 && !isSameVNodeType(n1, n2)) {
+            // 把以前的删掉 换成n2
+            anchor = hostNextSibling(n1.el);
+            unmount(n1);
+            n1 = null; //重新渲染n2对应的内容 
+        }
         switch (type) {
             case Text:
                 processText(n1, n2, container);
                 break;
             default:
                 if (shapeFlag & 1 /* ELEMENT */) {
-                    processElement(n1, n2, container);
+                    processElement(n1, n2, container, anchor);
                 }
                 else if (shapeFlag & 4 /* STATEFUL_COMPONENT */) {
                     processComponent(n1, n2, container);
@@ -632,7 +682,8 @@ const nodeOps = {
     },
     querySelector: selector => document.querySelector(selector),
     setElementText: (el, text) => el.textContent = text,
-    createText: text => document.createTextNode(text)
+    createText: text => document.createTextNode(text),
+    nextSibling: (node) => node.nextSibling
 };
 
 const patchAttr = (el, key, value) => {

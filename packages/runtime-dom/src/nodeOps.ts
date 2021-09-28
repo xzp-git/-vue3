@@ -12,5 +12,6 @@ export const nodeOps = {
   },
   querySelector: selector => document.querySelector(selector),
   setElementText:(el, text) => el.textContent = text,
-  createText: text => document.createTextNode(text)
+  createText: text => document.createTextNode(text),
+  nextSibling:(node) => node.nextSibling
 }
