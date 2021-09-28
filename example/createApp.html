@@ -12,12 +12,17 @@
     <script src="../packages/runtime-dom/dist/runtime-dom.global.js"></script>
 
     <script>
-        let {createApp, h} = VueRuntimeDom
-
+        let {createApp, h, reactive} = VueRuntimeDom
+        let state = reactive({name:'beijing'})
+        let fn = function(){
+            console.log(55555555555555);
+            state.name="aaaaaaaaa"
+            state.name="ssssssssss"
+        }
         let App = {
             setup(props,context){
                return () => {
-                return h('div', {style:{color:'red'}}, 'hellow world')
+                return h('div', {style:{color:'red'},onClick:fn},state.name)
                }
             }
         }
