@@ -571,10 +571,61 @@ function createRenderer(renderOptions) {
             }
         }
     };
+    const patchKeyedChildren = (c1, c2, el) => {
+        //vue3对特殊情况做了优化
+        const i = 0; //都是默认从头开始比对
+        const e1 = c1.length - 1;
+        const e2 = c2.length - 1;
+        //sync from start 从头开始一个个比 遇到不同的就停止了
+        while (i <= e1 && i <= e2) {
+            c1[i];
+            c2[i];
+        }
+    };
+    const unmountChildren = (children) => {
+        for (let i = 0; i < children.length; i++) {
+            unmount(children[i]);
+        }
+    };
     const patchChildren = (n1, n2, el) => {
-        n1.children;
-        n2.children;
+        const c1 = n1.children;
+        const c2 = n2.children;
         //老的有儿子新的没儿子  老的没儿子新的有儿子    新老都有儿子  新老都是文本
+        const prevShapeFlag = n1.shapeFlag;
+        const shapeFlag = n2.shapeFlag; //分别标识过儿子的状况
+        if (shapeFlag & 8 /* TEXT_CHILDREN */) { //case1:现在是文本之前是数组
+            //老的是n个孩子   新的是文本
+            if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                unmountChildren(c1); // 如果c1
+            }
+            //两个人都是文本的情况
+            if (c2 !== c1) { //case2:两个都是文本 
+                hostSetElementText(el, c2);
+            }
+        }
+        else {
+            //现在是元素 上一次有可能是文本或者数组
+            if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                if (shapeFlag & 16 /* ARRAY_CHILDREN */) { //case3两个都是数组
+                    //当前是数组 之前是数组
+                    //两个数组的比对 -> diff算法  **************************
+                    patchKeyedChildren(c1, c2);
+                }
+                else {
+                    //没有孩子 当前是null
+                    unmountChildren(c1); //删除老的
+                }
+            }
+            else {
+                //上次是文本
+                if (prevShapeFlag & 8 /* TEXT_CHILDREN */) { //case4 现在是数组 之前是文本
+                    hostSetElementText(el, '');
+                }
+                if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+                    mountChildren(c2, el);
+                }
+            }
+        }
     };
     const patchElement = (n1, n2, container) => {
         // 元素是相同节点
@@ -583,7 +634,7 @@ function createRenderer(renderOptions) {
         const oldProps = n1.props || {};
         const newProps = n2.props || {};
         patchProp(oldProps, newProps, el);
-        patchChildren(n1, n2);
+        patchChildren(n1, n2, container);
     };
     const processElement = (n1, n2, container, anchor) => {
         if (n1 == null) {
@@ -591,7 +642,7 @@ function createRenderer(renderOptions) {
         }
         else {
             //元素更新
-            patchElement(n1, n2);
+            patchElement(n1, n2, container);
         }
     };
     /***************************处理元素 */

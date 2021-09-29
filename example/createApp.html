@@ -20,7 +20,16 @@
         let App = {
             setup(props,context){
                return () => {
-                return state.flag? h('h1', {style:{color:'red'}},'world'):h('h1', {style:{color:'blue'}},'hello')
+                return state.flag? h('h1', {style:{color:'red'}},[
+                    h('li',{key:'a'},'a'),
+                    h('li',{key:'b'},'b'),
+                    h('li',{key:'c'},'c')
+                ]):h('h1', {style:{color:'blue'}},[
+                    h('li',{key:'a'},'a'),
+                    h('li',{key:'b'},'b'),
+                    h('li',{key:'d'},'d'),
+                    h('li',{key:'e'},'e')
+                ])
                }
             }
         }
