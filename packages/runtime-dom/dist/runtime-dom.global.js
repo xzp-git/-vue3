@@ -576,14 +576,88 @@ var VueRuntimeDom = (function (exports) {
       };
       const patchKeyedChildren = (c1, c2, el) => {
           //vue3对特殊情况做了优化
-          const i = 0; //都是默认从头开始比对
-          const e1 = c1.length - 1;
-          const e2 = c2.length - 1;
+          let i = 0; //都是默认从头开始比对
+          let e1 = c1.length - 1;
+          let e2 = c2.length - 1;
+          /*
+            //0 2 3
+            i 0 -> 1
+            //1 2 3
+            i 1 -> 2
+            //2 2 3
+            //2 -> 3
+          */
           //sync from start 从头开始一个个比 遇到不同的就停止了
           while (i <= e1 && i <= e2) {
-              c1[i];
-              c2[i];
+              const n1 = c1[i];
+              const n2 = c2[i];
+              if (isSameVNodeType(n1, n2)) {
+                  patch(n1, n2, el);
+              }
+              else {
+                  break;
+              }
+              i++;
           }
+          //sync from end 从结尾对比
+          while (i <= e1 && i <= e2) {
+              const n1 = c1[e1];
+              const n2 = c2[e2];
+              if (isSameVNodeType(n1, n2)) {
+                  patch(n1, n2, el);
+              }
+              else {
+                  break;
+              }
+              e1--;
+              e2--;
+          }
+          //common sequence + mount  同序列对比 假如比较后 有一方已经完全比对成功
+          // 怎么确定是要挂载的
+          //如果完成后 最终 i的值大于e1
+          if (i > e1) { //老的少 新的多
+              if (i <= e2) { //表示有新增的部分
+                  while (i <= e2) {
+                      const nextPos = e2 + 1;
+                      //想知道是向前插入还是向后插入
+                      const anchor = nextPos < c2.length ? c2[nextPos].el : null;
+                      patch(null, c2[i], el, anchor);
+                      i++;
+                  }
+              }
+          }
+          else if (i > e2) { //老的多新的少
+              //common sequence + unmount  同序列对比 假如比较后 有一方已经完全比对成功
+              while (i <= e1) {
+                  unmount(c1[i]);
+                  i++;
+              }
+          }
+          else {
+              //乱序比对  需要尽可能的复用 用心的元素去老的里面找 一样的就服用, 不一样的要不插入 要不删除
+              const s1 = i;
+              const s2 = i;
+              //vue3 用的是新的 做映射表
+              const KeyToNewIndexMap = new Map();
+              for (let i = s2; i <= e2; i++) {
+                  const childVNode = c2[i];
+                  KeyToNewIndexMap.set(childVNode.key, i);
+              }
+              //去老的里面查找 看有没有复用的
+              for (let i = s1; i <= e1; i++) {
+                  const oldVnode = c1[i];
+                  const newIndex = KeyToNewIndexMap.get(oldVnode.key);
+                  if (newIndex === undefined) { //老的里的 没有新的需要的
+                      unmount(oldVnode);
+                  }
+                  else {
+                      patch(oldVnode, c2[newIndex], el);
+                  }
+              }
+              //最后就是移动节点,并且将新增的节点插入
+              //最长递增子序列
+          }
+          console.log(i, e1, e2);
       };
       const unmountChildren = (children) => {
           for (let i = 0; i < children.length; i++) {
@@ -612,7 +686,7 @@ var VueRuntimeDom = (function (exports) {
                   if (shapeFlag & 16 /* ARRAY_CHILDREN */) { //case3两个都是数组
                       //当前是数组 之前是数组
                       //两个数组的比对 -> diff算法  **************************
-                      patchKeyedChildren(c1, c2);
+                      patchKeyedChildren(c1, c2, el);
                   }
                   else {
                       //没有孩子 当前是null
@@ -637,7 +711,7 @@ var VueRuntimeDom = (function (exports) {
           const oldProps = n1.props || {};
           const newProps = n2.props || {};
           patchProp(oldProps, newProps, el);
-          patchChildren(n1, n2, container);
+          patchChildren(n1, n2, el);
       };
       const processElement = (n1, n2, container, anchor) => {
           if (n1 == null) {
@@ -645,7 +719,7 @@ var VueRuntimeDom = (function (exports) {
           }
           else {
               //元素更新
-              patchElement(n1, n2, container);
+              patchElement(n1, n2);
           }
       };
       /***************************处理元素 */
