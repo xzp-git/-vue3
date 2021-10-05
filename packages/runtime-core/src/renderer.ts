@@ -187,30 +187,38 @@ export  function createRenderer(renderOptions) { //告诉core 怎么渲染
         const childVNode = c2[i]
         KeyToNewIndexMap.set(childVNode.key,i)
       }
+
+      const toBePatched = e2 - s2 + 1
+  
+      const newIndexToOldIndexMap = new Array(toBePatched).fill(0)
+      
       //去老的里面查找 看有没有复用的
       for(let i = s1; i<=e1; i++){
         const oldVnode = c1[i]
         const newIndex = KeyToNewIndexMap.get(oldVnode.key)
         if (newIndex === undefined) { //老的里的 没有新的需要的
           unmount(oldVnode)
-        }else{
+        }else{//新老比对 比较完毕后位置存在差异
+          //新的和旧的关系 索引关系
+          newIndexToOldIndexMap[newIndex - s2] = i+1  
           patch(oldVnode,c2[newIndex],el)
         } 
       }
-
+      for(let i = toBePatched - 1; i>=0; i--){
+        
+      }
       //最后就是移动节点,并且将新增的节点插入
       //最长递增子序列
-    }
 
-    
-    console.log(i , e1, e2)
-    
+    }
   }
+
   const unmountChildren = (children) => {
     for(let i = 0; i < children.length; i++){
       unmount(children[i])
     }
   }
+
   const patchChildren = (n1, n2, el) => {
     const c1 = n1.children
     const c2 = n2.children
