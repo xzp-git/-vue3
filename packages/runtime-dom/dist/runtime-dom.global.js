@@ -617,10 +617,10 @@ var VueRuntimeDom = (function (exports) {
           //如果完成后 最终 i的值大于e1
           if (i > e1) { //老的少 新的多
               if (i <= e2) { //表示有新增的部分
+                  const nextPos = e2 + 1;
+                  //想知道是向前插入还是向后插入
+                  const anchor = nextPos < c2.length ? c2[nextPos].el : null;
                   while (i <= e2) {
-                      const nextPos = e2 + 1;
-                      //想知道是向前插入还是向后插入
-                      const anchor = nextPos < c2.length ? c2[nextPos].el : null;
                       patch(null, c2[i], el, anchor);
                       i++;
                   }
@@ -656,6 +656,17 @@ var VueRuntimeDom = (function (exports) {
                       //新的和旧的关系 索引关系
                       newIndexToOldIndexMap[newIndex - s2] = i + 1;
                       patch(oldVnode, c2[newIndex], el);
+                  }
+              }
+              for (let i = toBePatched - 1; i >= 0; i--) {
+                  const currentIndex = i + s2; //找到H的索引
+                  const child = c2[currentIndex]; //找到h对应的节点
+                  const anchor = currentIndex + 1 < c2.length ? c2[currentIndex + 1].el : null;
+                  if (newIndexToOldIndexMap[i] == 0) { //如果自己是0说明没有被patch过
+                      patch(null, child, el, anchor);
+                  }
+                  else {
+                      hostInsert(child.el, el, anchor); //操作当前的d 以d下一个作为参照物插入
                   }
               }
               //最后就是移动节点,并且将新增的节点插入
