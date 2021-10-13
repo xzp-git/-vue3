@@ -30,7 +30,7 @@ export function createApp(rootComponent, rootProps = null) {
     container = nodeOps.querySelector(container)
     container.innerHTML = ''
     mount(container)
-    //将组价 渲染成dom元素 进行挂载
+    //将组价 渲染成dom元素 进行挂载 
   }
   return app
 }

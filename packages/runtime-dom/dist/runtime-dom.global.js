@@ -658,6 +658,9 @@ var VueRuntimeDom = (function (exports) {
                       patch(oldVnode, c2[newIndex], el);
                   }
               }
+              const increasingNewIndexSequence = getSequence(newIndexToOldIndexMap);
+              let j = increasingNewIndexSequence.length - 1; //取出最后一个
+              console.log(increasingNewIndexSequence);
               for (let i = toBePatched - 1; i >= 0; i--) {
                   const currentIndex = i + s2; //找到H的索引
                   const child = c2[currentIndex]; //找到h对应的节点
@@ -666,13 +669,63 @@ var VueRuntimeDom = (function (exports) {
                       patch(null, child, el, anchor);
                   }
                   else {
-                      hostInsert(child.el, el, anchor); //操作当前的d 以d下一个作为参照物插入
+                      if (i != increasingNewIndexSequence[j]) {
+                          hostInsert(child.el, el, anchor); //操作当前的d 以d下一个作为参照物插入
+                      }
+                      else {
+                          j--; //跳过不需要移动的元素
+                      }
                   }
               }
               //最后就是移动节点,并且将新增的节点插入
               //最长递增子序列
           }
       };
+      function getSequence(arr) {
+          const len = arr.length;
+          const result = [0]; //先默认第0个为参照物
+          const p = arr.slice(0); //里面内容无所谓 和原本的数组相同 用来存放索引
+          let start;
+          let end;
+          let middle;
+          for (let i = 0; i < len; i++) {
+              const arr1 = arr[i];
+              if (arr1 !== 0) {
+                  const resultLastIndex = result[result.length - 1];
+                  if (arr[resultLastIndex] < arr1) {
+                      p[i] = resultLastIndex;
+                      result.push(i); //当前的值 比上一个人大 直接push 并且让这个人 得记录他的前一个
+                      continue;
+                  }
+                  //二分查找 找到比当前值大的那一个
+                  start = 0;
+                  end = result.length - 1;
+                  while (start < end) { //重合就说明找到了对应的值
+                      middle = ((start + end) / 2) | 0; //找到中间位置的前一个
+                      if (arr[result[middle]] < arr1) {
+                          start = start + 1;
+                      }
+                      else {
+                          end = middle;
+                      } //找到结果集中比当前这一项大的数
+                  }
+                  //start end 就是找到的位置
+                  if (arr1 < arr[result[start]]) {
+                      if (start > 0) { //才需要替换
+                          p[i] = result[start - 1];
+                      }
+                      result[start] = i;
+                  }
+              }
+          }
+          let lens = result.length; //总的个数
+          let last = result[lens - 1];
+          while (lens-- > 0) { //根据前驱节点一个个向前查找
+              result[lens] = last;
+              last = p[last];
+          }
+          return result;
+      }
       const unmountChildren = (children) => {
           for (let i = 0; i < children.length; i++) {
               unmount(children[i]);
@@ -930,7 +983,7 @@ var VueRuntimeDom = (function (exports) {
           container = nodeOps.querySelector(container);
           container.innerHTML = '';
           mount(container);
-          //将组价 渲染成dom元素 进行挂载
+          //将组价 渲染成dom元素 进行挂载 
       };
       return app;
   }
