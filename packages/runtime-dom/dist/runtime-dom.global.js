@@ -10,6 +10,153 @@ var VueRuntimeDom = (function (exports) {
   const isString = (val) => typeof val === 'string';
   const hasOwn = (target, key) => Object.prototype.hasOwnProperty.call(target, key);
 
+  const PublicInstanceProxyHandlers = {
+      get({ _: instance }, key) {
+          //取值时 要访问setUpState, props, data
+          const { setupState, props, data } = instance;
+          if (key[0] == '$') {
+              return; //不能访问 $ 开头的变量
+          }
+          if (hasOwn(setupState, key)) {
+              return setupState[key];
+          }
+          else if (hasOwn(props, key)) {
+              return props[key];
+          }
+          else if (hasOwn(data, key)) {
+              return data[key];
+          }
+      },
+      set({ _: instance }, key, value) {
+          const { setupState, props, data } = instance;
+          if (hasOwn(setupState, key)) {
+              setupState[key] = value;
+          }
+          else if (hasOwn(props, key)) {
+              props[key] = value;
+          }
+          else if (hasOwn(data, key)) {
+              data[key] = value;
+          }
+          return true;
+      }
+  };
+
+  //组件中所有的方法
+  function createComponentInstance(vnode) {
+      const instance = {
+          vnode,
+          type: vnode.type,
+          props: {},
+          attrs: {},
+          slots: {},
+          ctx: {},
+          setupState: {},
+          render: null,
+          isMounted: false //表示这个组件是否挂载过
+      };
+      instance.ctx = { _: instance };
+      return instance;
+  }
+  function setupComponent(instance) {
+      const { props, children } = instance.vnode; // {type, props, children}
+      //根据props 解析出 props和 attrs 将其放到instance上
+      instance.props = props; //initProps
+      instance.children = children; //插槽的解析 initSlot()
+      //需要先看一下 当前组件是不是有状态的组件， 函数组件
+      const isStateful = instance.vnode.shapeFlag & 4 /* STATEFUL_COMPONENT */;
+      if (isStateful) { //表示现在是一个带状态的组件
+          //调用 当前实例的setup方法， 用setup的返回值 填充setupState和对应的render方法 
+          setupStatefulComponent(instance);
+      }
+  }
+  let currentInstance = null;
+  const setCurrentInstance = (instance) => {
+      currentInstance = instance;
+  };
+  const getCurrentInstance = () => {
+      return currentInstance;
+  };
+  function setupStatefulComponent(instance) {
+      //1.代理 传递给 render函数的参数
+      instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers);
+      //2.获取组件的类型拿到组件的setup方法
+      const Component = instance.type;
+      const { setup } = Component;
+      if (setup) {
+          currentInstance = instance;
+          const setupContext = createContext(instance);
+          const setupResult = setup(instance.props, setupContext);
+          currentInstance = null;
+          handleSetupResult(instance, setupResult);
+      }
+      else {
+          finishComponentSetup(instance); //完成组件的启动
+      }
+  }
+  function handleSetupResult(instance, setupResult) {
+      if (isFunction(setupResult)) {
+          instance.render = setupResult;
+      }
+      else if (isObject(setupResult)) {
+          instance.setupState = setupResult;
+      }
+      finishComponentSetup(instance);
+  }
+  function finishComponentSetup(instance) {
+      const Component = instance.type;
+      if (!instance.render) {
+          // 对template模板进行编译 产生render函数
+          if (!Component.render && Component.template) ;
+          instance.render = Component.render; // 需要将生成的render函数放在实例上
+      }
+      // 对vue2的 API 做了兼容处理
+      // applyOptions
+  }
+  function createContext(instance) {
+      return {
+          attrs: instance.attrs,
+          slots: instance.slots,
+          emit: () => {
+              'sss';
+          },
+          expose: () => {
+              'sss';
+          },
+          props: instance.props
+      };
+  }
+
+  const injectHook = (type, hook, target) => {
+      if (!target) {
+          console.warn('injection APIs can only be used during execution of setup');
+      }
+      else {
+          const hooks = target[type] || (target[type] = []);
+          const wrap = () => {
+              setCurrentInstance(target); // currentInstace = 自己的
+              hook.call(target);
+              setCurrentInstance(null);
+          };
+          hooks.push(wrap);
+      }
+  };
+  const createHook = (lifecycle) => {
+      return (hook, target = currentInstance) => {
+          // 给当前实例增加对应的生命周期 即可
+          injectHook(lifecycle, hook, target);
+      };
+  };
+  const invokeArrayFns = (fns) => {
+      for (let i = 0; i < fns.length; i++) { //vue2中也是让函数依次执行
+          fns[i]();
+      }
+  };
+  const onBeforeMount = createHook("bm" /* BEFORE_MOUNT */);
+  const onMounted = createHook("m" /* MOUNT */);
+  const onBeforeUpdate = createHook("bu" /* BEFORE_UPDATE */);
+  const onUpdated = createHook("u" /* UPDATE */);
+
   function effect(fn, options = {}) {
       const effect = createReactiveEffect(fn, options); //把fn包装成一个响应式的函数
       if (!options.lazy) {
@@ -361,114 +508,6 @@ var VueRuntimeDom = (function (exports) {
       };
   }
 
-  const PublicInstanceProxyHandlers = {
-      get({ _: instance }, key) {
-          //取值时 要访问setUpState, props, data
-          const { setupState, props, data } = instance;
-          if (key[0] == '$') {
-              return; //不能访问 $ 开头的变量
-          }
-          if (hasOwn(setupState, key)) {
-              return setupState[key];
-          }
-          else if (hasOwn(props, key)) {
-              return props[key];
-          }
-          else if (hasOwn(data, key)) {
-              return data[key];
-          }
-      },
-      set({ _: instance }, key, value) {
-          const { setupState, props, data } = instance;
-          if (hasOwn(setupState, key)) {
-              setupState[key] = value;
-          }
-          else if (hasOwn(props, key)) {
-              props[key] = value;
-          }
-          else if (hasOwn(data, key)) {
-              data[key] = value;
-          }
-          return true;
-      }
-  };
-
-  //组件中所有的方法
-  function createComponentInstance(vnode) {
-      const instance = {
-          vnode,
-          type: vnode.type,
-          props: {},
-          attrs: {},
-          slots: {},
-          ctx: {},
-          setupState: {},
-          render: null,
-          isMounted: false //表示这个组件是否挂载过
-      };
-      instance.ctx = { _: instance };
-      return instance;
-  }
-  function setupComponent(instance) {
-      const { props, children } = instance.vnode; // {type, props, children}
-      //根据props 解析出 props和 attrs 将其放到instance上
-      instance.props = props; //initProps
-      instance.children = children; //插槽的解析 initSlot()
-      //需要先看一下 当前组件是不是有状态的组件， 函数组件
-      const isStateful = instance.vnode.shapeFlag & 4 /* STATEFUL_COMPONENT */;
-      if (isStateful) { //表示现在是一个带状态的组件
-          //调用 当前实例的setup方法， 用setup的返回值 填充setupState和对应的render方法 
-          setupStatefulComponent(instance);
-      }
-  }
-  function setupStatefulComponent(instance) {
-      //1.代理 传递给 render函数的参数
-      instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers);
-      //2.获取组件的类型拿到组件的setup方法
-      const Component = instance.type;
-      const { setup } = Component;
-      if (setup) {
-          const setupContext = createContext(instance);
-          const setupResult = setup(instance.props, setupContext);
-          handleSetupResult(instance, setupResult);
-      }
-      else {
-          finishComponentSetup(instance); //完成组件的启动
-      }
-  }
-  function handleSetupResult(instance, setupResult) {
-      if (isFunction(setupResult)) {
-          instance.render = setupResult;
-      }
-      else if (isObject(setupResult)) {
-          instance.setupState = setupResult;
-      }
-      finishComponentSetup(instance);
-  }
-  function finishComponentSetup(instance) {
-      const Component = instance.type;
-      if (!instance.render) {
-          // 对template模板进行编译 产生render函数
-          if (!Component.render && Component.template) ;
-          instance.render = Component.render; // 需要将生成的render函数放在实例上
-      }
-      // 对vue2的 API 做了兼容处理
-      // applyOptions
-  }
-  function createContext(instance) {
-      return {
-          attrs: instance.attrs,
-          slots: instance.slots,
-          emit: () => {
-              'sss';
-          },
-          expose: () => {
-              'sss';
-          },
-          props: instance.props
-      };
-  }
-
   const queue = [];
   function queueJob(job) {
       if (!queue.includes(job)) {
@@ -502,20 +541,34 @@ var VueRuntimeDom = (function (exports) {
           effect(function componentEffect() {
               if (!instance.isMounted) {
                   //初次渲染
+                  const { bm, m } = instance;
+                  if (bm) {
+                      invokeArrayFns(bm);
+                  }
                   const proxyToUse = instance.proxy;
                   // $vnode _vnode
                   // vnode subTree
                   const subTree = instance.subTree = instance.render.call(proxyToUse, proxyToUse);
                   patch(null, subTree, container);
                   instance.isMounted = true;
+                  if (m) { //mounted 要求在我们子组件渲染完成后在执行
+                      invokeArrayFns(m);
+                  }
               }
               else {
                   // 更新逻辑
                   // diff
+                  const { bu, u } = instance;
+                  if (bu) {
+                      invokeArrayFns(bu);
+                  }
                   const prevTree = instance.subTree;
                   const proxyToUse = instance.proxy;
                   const nextTree = instance.render.call(proxyToUse, proxyToUse);
                   patch(prevTree, nextTree, container);
+                  if (u) {
+                      invokeArrayFns(u);
+                  }
               }
           }, { scheduler: queueJob });
       };
@@ -992,7 +1045,12 @@ var VueRuntimeDom = (function (exports) {
   exports.createApp = createApp;
   exports.createRenderer = createRenderer;
   exports.effect = effect;
+  exports.getCurrentInstance = getCurrentInstance;
   exports.h = h;
+  exports.onBeforeMount = onBeforeMount;
+  exports.onBeforeUpdate = onBeforeUpdate;
+  exports.onMounted = onMounted;
+  exports.onUpdated = onUpdated;
   exports.reactive = reactive;
   exports.readonly = readonly;
   exports.ref = ref;

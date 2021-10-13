@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+
+    <div id="app"></div>
+    <script src="../packages/runtime-dom/dist/runtime-dom.global.js"></script>
+
+    <script>
+        let { createApp, h, reactive,onBeforeUpdate, onBeforeMount, onMounted, onUpdated, getCurrentInstance } = VueRuntimeDom
+        let state = reactive({ flag: true })
+        setTimeout(() => {
+            state.flag = false
+        }, 2000)
+        let App = {
+            setup(props, context) {
+                onBeforeMount(() => {
+                    console.log('onBeforeMount');
+                })
+                onMounted(() => {
+                    console.log('onMounted');
+                })
+                onBeforeUpdate(() => {
+                    console.log('onBeforeUpdate');
+                })
+                onUpdated(() => {
+                    console.log('onUpdated');
+                })
+                let instance = getCurrentInstance()
+                console.log(instance);
+                return () => {
+
+                    //diff case1:sync from start
+                    // return state.flag? h('h1', {style:{color:'red'}},[
+                    //     h('li',{key:'a'},'a'),
+                    //     h('li',{key:'b'},'b'),
+                    //     h('li',{key:'c'},'c')
+                    // ]):h('h1', {style:{color:'blue'}},[
+                    //     h('li',{key:'a'},'a'),
+                    //     h('li',{key:'b'},'b'),
+                    //     h('li',{key:'d'},'d'),
+                    //     h('li',{key:'e'},'e')
+                    // ])
+                    //diff case2: sync from end  -----common sequence + mount
+                    //     return state.flag? h('h1', {style:{color:'red'}},[
+                    //         h('li',{key:'a'},'a'),
+                    //         h('li',{key:'b'},'b'),
+                    //         h('li',{key:'c'},'c')
+                    //     ]):h('h1', {style:{color:'blue'}},[
+                    //         h('li',{key:'d'},'d'),
+                    //         h('li',{key:'a'},'a'),
+                    //         h('li',{key:'b'},'b'),
+                    //         h('li',{key:'c'},'c')
+                    //     ])
+                    //    }
+                    //diff case2: sync from end  -----common sequence + unmount
+                    return state.flag ? h('h1', { style: { color: 'red' } }, [
+                        h('li', { key: 'a' }, 'a'),
+                        h('li', { key: 'b' }, 'b'),
+                        h('li', { key: 'c' }, 'c'),
+                        h('li', { key: 'd' }, 'd'),
+                        h('li', { key: 'e' }, 'e'),
+                        h('li', { key: 'q' }, 'q'),
+                        h('li', { key: 'f' }, 'f'),
+                        h('li', { key: 'g' }, 'g')
+                    ]) : h('h1', { style: { color: 'blue' } }, [
+                        h('li', { key: 'a' }, 'a'),
+                        h('li', { key: 'b' }, 'b'),
+                        h('li', { key: 'e' }, 'e'),
+                        h('li', { key: 'c' }, 'c'),
+                        h('li', { key: 'd' }, 'd'),
+                        h('li', { key: 'h' }, 'h'),
+                        h('li', { key: 'f' }, 'f'),
+                        h('li', { key: 'g' }, 'g')
+                    ])
+                }
+            }
+        }
+
+        createApp(App, { name: 'bejing', age: 70 }).mount('#app')
+    </script>
+</body>
+
+</html>

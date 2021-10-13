@@ -1,6 +1,7 @@
 import { effect } from '@vue/reactivity'
 import { ShapeFlags } from '@vue/shared'
 import { createAppAPI } from './apiCreateApp'
+import { invokeArrayFns } from './apiLifecycle'
 import { createComponentInstance, setupComponent } from './component'
 import { queueJob } from './scheduler'
 import { normalizeVNode, Text } from './vnode'
@@ -28,6 +29,10 @@ export  function createRenderer(renderOptions) { //告诉core 怎么渲染
     effect(function componentEffect() { //每个组件都有一个efect vue3是组件级更新
       if (!instance.isMounted) {
         //初次渲染
+        const {bm, m} = instance
+        if (bm) {
+          invokeArrayFns(bm)
+        }
         const proxyToUse = instance.proxy
         // $vnode _vnode
         // vnode subTree
@@ -35,13 +40,23 @@ export  function createRenderer(renderOptions) { //告诉core 怎么渲染
 
         patch(null, subTree, container)
         instance.isMounted = true
+        if (m) { //mounted 要求在我们子组件渲染完成后在执行
+          invokeArrayFns(m)
+        }
       }else{
         // 更新逻辑
         // diff
+        const {bu, u} = instance
+        if (bu) {
+          invokeArrayFns(bu)
+        }
         const prevTree = instance.subTree
         const proxyToUse = instance.proxy
         const nextTree = instance.render.call(proxyToUse,proxyToUse)
         patch(prevTree, nextTree, container)
+        if (u) {
+          invokeArrayFns(u)
+        }
       }
 
     },{scheduler:queueJob})

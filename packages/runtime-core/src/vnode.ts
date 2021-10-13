@@ -36,7 +36,7 @@ function normalizeChildren(vnode, children) {
   let type = 0
   if (children == null) {// 不对儿子进行处理
         
-  }else if (isArray(children)) {A
+  }else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN
   }else{
     type = ShapeFlags.TEXT_CHILDREN
